@@ -100,6 +100,8 @@ namespace qcamera {
                                               CAM_QCOM_FEATURE_SCALE |\
                                               CAM_QCOM_FEATURE_CAC |\
                                               CAM_QCOM_FEATURE_CDS )
+/* Per configuration size for static metadata length*/
+#define PER_CONFIGURATION_SIZE_3 (3)
 
 #define TIMEOUT_NEVER -1
 
@@ -378,7 +380,11 @@ QCamera3HardwareInterface::QCamera3HardwareInterface(uint32_t cameraId,
     m_perfLock.lock_init();
     mCommon.init(gCamCapability[cameraId]);
     mCameraDevice.common.tag = HARDWARE_DEVICE_TAG;
+#ifndef USE_HAL_3_3
+    mCameraDevice.common.version = CAMERA_DEVICE_API_VERSION_3_4;
+#else
     mCameraDevice.common.version = CAMERA_DEVICE_API_VERSION_3_3;
+#endif
     mCameraDevice.common.close = close_camera_device;
     mCameraDevice.ops = &mCameraOps;
     mCameraDevice.priv = this;
@@ -4924,19 +4930,24 @@ QCamera3HardwareInterface::translateFromHalMetadata(
           blackLevelAppliedPattern->cam_black_level[2],
           blackLevelAppliedPattern->cam_black_level[3]);
         camMetadata.update(QCAMERA3_SENSOR_DYNAMIC_BLACK_LEVEL_PATTERN, fwk_blackLevelInd, 4);
-        camMetadata.update(NEXUS_EXPERIMENTAL_2015_SENSOR_DYNAMIC_BLACK_LEVEL, fwk_blackLevelInd, 4);
+
+#ifndef USE_HAL_3_3
+        // Update the ANDROID_SENSOR_DYNAMIC_BLACK_LEVEL
+        // Need convert the internal 16 bit depth to sensor 10 bit sensor raw
+        // depth space.
+        fwk_blackLevelInd[0] /= 64.0;
+        fwk_blackLevelInd[1] /= 64.0;
+        fwk_blackLevelInd[2] /= 64.0;
+        fwk_blackLevelInd[3] /= 64.0;
+        camMetadata.update(ANDROID_SENSOR_DYNAMIC_BLACK_LEVEL, fwk_blackLevelInd, 4);
+#endif
     }
 
-
-    if (gCamCapability[mCameraId]->optical_black_region_count != 0 &&
-        gCamCapability[mCameraId]->optical_black_region_count <= MAX_OPTICAL_BLACK_REGIONS) {
-        int32_t opticalBlackRegions[MAX_OPTICAL_BLACK_REGIONS * 4];
-        for (size_t i = 0; i < gCamCapability[mCameraId]->optical_black_region_count * 4; i++) {
-            opticalBlackRegions[i] = gCamCapability[mCameraId]->optical_black_regions[i];
-        }
-        camMetadata.update(NEXUS_EXPERIMENTAL_2015_SENSOR_INFO_OPTICALLY_SHIELDED_REGIONS,
-                opticalBlackRegions, gCamCapability[mCameraId]->optical_black_region_count * 4);
-    }
+#ifndef USE_HAL_3_3
+    // Fixed whitelevel is used by ISP/Sensor
+    camMetadata.update(ANDROID_SENSOR_DYNAMIC_WHITE_LEVEL,
+            &gCamCapability[mCameraId]->white_level, 1);
+#endif
 
     IF_META_AVAILABLE(cam_crop_region_t, hScalerCropRegion,
             CAM_INTF_META_SCALER_CROP_REGION, metadata) {
@@ -4989,6 +5000,13 @@ QCamera3HardwareInterface::translateFromHalMetadata(
         camMetadata.update(ANDROID_SENSOR_NOISE_PROFILE, noise_profile,
                 (size_t) (2 * gCamCapability[mCameraId]->num_color_channels));
     }
+
+#ifndef USE_HAL_3_3
+    IF_META_AVAILABLE(int32_t, ispSensitivity, CAM_INTF_META_ISP_SENSITIVITY, metadata) {
+        int32_t fwk_ispSensitivity = (int32_t) *ispSensitivity;
+        camMetadata.update(ANDROID_CONTROL_POST_RAW_SENSITIVITY_BOOST, &fwk_ispSensitivity, 1);
+    }
+#endif
 
     IF_META_AVAILABLE(uint32_t, shadingMode, CAM_INTF_META_SHADING_MODE, metadata) {
         uint8_t fwk_shadingMode = (uint8_t) *shadingMode;
@@ -6532,7 +6550,12 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
 
     uint8_t supportedHwLvl = limitedDevice ?
             ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED :
+#ifndef USE_HAL_3_3
+            // LEVEL_3 - This device will support level 3.
+            ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_3;
+#else
             ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_FULL;
+#endif
 
     staticInfo.update(ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL,
             &supportedHwLvl, 1);
@@ -6610,6 +6633,23 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
     staticInfo.update(ANDROID_SENSOR_BLACK_LEVEL_PATTERN,
             gCamCapability[cameraId]->black_level_pattern, BLACK_LEVEL_PATTERN_CNT);
 
+#ifndef USE_HAL_3_3
+    bool hasBlackRegions = false;
+    if (gCamCapability[cameraId]->optical_black_region_count > MAX_OPTICAL_BLACK_REGIONS) {
+        LOGW("black_region_count: %d is bounded to %d",
+            gCamCapability[cameraId]->optical_black_region_count, MAX_OPTICAL_BLACK_REGIONS);
+        gCamCapability[cameraId]->optical_black_region_count = MAX_OPTICAL_BLACK_REGIONS;
+    }
+    if (gCamCapability[cameraId]->optical_black_region_count != 0) {
+        int32_t opticalBlackRegions[MAX_OPTICAL_BLACK_REGIONS * 4];
+        for (size_t i = 0; i < gCamCapability[cameraId]->optical_black_region_count * 4; i++) {
+            opticalBlackRegions[i] = gCamCapability[cameraId]->optical_black_regions[i];
+        }
+        staticInfo.update(ANDROID_SENSOR_OPTICAL_BLACK_REGIONS,
+                opticalBlackRegions, gCamCapability[cameraId]->optical_black_region_count * 4);
+        hasBlackRegions = true;
+    }
+#endif
     staticInfo.update(ANDROID_FLASH_INFO_CHARGE_DURATION,
             &gCamCapability[cameraId]->flash_charge_duration, 1);
 
@@ -7210,6 +7250,17 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
                       &max_latency,
                       1);
 
+#ifndef USE_HAL_3_3
+    int32_t isp_sensitivity_range[2];
+    isp_sensitivity_range[0] =
+        gCamCapability[cameraId]->isp_sensitivity_range.min_sensitivity;
+    isp_sensitivity_range[1] =
+        gCamCapability[cameraId]->isp_sensitivity_range.max_sensitivity;
+    staticInfo.update(ANDROID_CONTROL_POST_RAW_SENSITIVITY_BOOST_RANGE,
+                      isp_sensitivity_range,
+                      sizeof(isp_sensitivity_range) / sizeof(isp_sensitivity_range[0]));
+#endif
+
     uint8_t available_hot_pixel_modes[] = {ANDROID_HOT_PIXEL_MODE_FAST,
                                            ANDROID_HOT_PIXEL_MODE_HIGH_QUALITY};
     staticInfo.update(ANDROID_HOT_PIXEL_AVAILABLE_HOT_PIXEL_MODES,
@@ -7320,6 +7371,9 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
        ANDROID_SENSOR_FRAME_DURATION, ANDROID_HOT_PIXEL_MODE,
        ANDROID_STATISTICS_HOT_PIXEL_MAP_MODE,
        ANDROID_SENSOR_SENSITIVITY, ANDROID_SHADING_MODE,
+#ifndef USE_HAL_3_3
+       ANDROID_CONTROL_POST_RAW_SENSITIVITY_BOOST,
+#endif
        ANDROID_STATISTICS_FACE_DETECT_MODE,
        ANDROID_STATISTICS_HISTOGRAM_MODE, ANDROID_STATISTICS_SHARPNESS_MAP_MODE,
        ANDROID_STATISTICS_LENS_SHADING_MAP_MODE, ANDROID_TONEMAP_CURVE_BLUE,
@@ -7358,7 +7412,12 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
        ANDROID_STATISTICS_SHARPNESS_MAP, ANDROID_STATISTICS_SHARPNESS_MAP_MODE,
        ANDROID_STATISTICS_PREDICTED_COLOR_GAINS, ANDROID_STATISTICS_PREDICTED_COLOR_TRANSFORM,
        ANDROID_STATISTICS_SCENE_FLICKER, ANDROID_STATISTICS_FACE_RECTANGLES,
-       ANDROID_STATISTICS_FACE_SCORES};
+       ANDROID_STATISTICS_FACE_SCORES,
+#ifndef USE_HAL_3_3
+       ANDROID_CONTROL_POST_RAW_SENSITIVITY_BOOST,
+#endif
+       };
+
     size_t result_keys_cnt =
             sizeof(result_keys_basic)/sizeof(result_keys_basic[0]);
 
@@ -7379,10 +7438,16 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
         available_result_keys.add(ANDROID_STATISTICS_FACE_IDS);
         available_result_keys.add(ANDROID_STATISTICS_FACE_LANDMARKS);
     }
+#ifndef USE_HAL_3_3
+    if (hasBlackRegions) {
+        available_result_keys.add(ANDROID_SENSOR_DYNAMIC_BLACK_LEVEL);
+        available_result_keys.add(ANDROID_SENSOR_DYNAMIC_WHITE_LEVEL);
+    }
+#endif
     staticInfo.update(ANDROID_REQUEST_AVAILABLE_RESULT_KEYS,
             available_result_keys.array(), available_result_keys.size());
 
-    int32_t available_characteristics_keys[] = {ANDROID_CONTROL_AE_AVAILABLE_ANTIBANDING_MODES,
+    int32_t characteristics_keys_basic[] = {ANDROID_CONTROL_AE_AVAILABLE_ANTIBANDING_MODES,
        ANDROID_CONTROL_AE_AVAILABLE_MODES, ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES,
        ANDROID_CONTROL_AE_COMPENSATION_RANGE, ANDROID_CONTROL_AE_COMPENSATION_STEP,
        ANDROID_CONTROL_AF_AVAILABLE_MODES, ANDROID_CONTROL_AVAILABLE_EFFECTS,
@@ -7436,10 +7501,24 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
        ANDROID_CONTROL_AWB_LOCK_AVAILABLE,
        ANDROID_STATISTICS_INFO_AVAILABLE_LENS_SHADING_MAP_MODES,
        ANDROID_SHADING_AVAILABLE_MODES,
-       ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL };
+       ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL,
+#ifndef USE_HAL_3_3
+       ANDROID_SENSOR_OPAQUE_RAW_SIZE,
+       ANDROID_CONTROL_POST_RAW_SENSITIVITY_BOOST_RANGE,
+#endif
+       };
+
+    Vector<int32_t> available_characteristics_keys;
+    available_characteristics_keys.appendArray(characteristics_keys_basic,
+            sizeof(characteristics_keys_basic)/sizeof(int32_t));
+#ifndef USE_HAL_3_3
+    if (hasBlackRegions) {
+        available_characteristics_keys.add(ANDROID_SENSOR_OPTICAL_BLACK_REGIONS);
+    }
+#endif
     staticInfo.update(ANDROID_REQUEST_AVAILABLE_CHARACTERISTICS_KEYS,
-                      available_characteristics_keys,
-                      sizeof(available_characteristics_keys)/sizeof(int32_t));
+                      available_characteristics_keys.array(),
+                      available_characteristics_keys.size());
 
     /*available stall durations depend on the hw + sw and will be different for different devices */
     /*have to add for raw after implementation*/
@@ -7511,6 +7590,35 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
     }
     staticInfo.update(QCAMERA3_OPAQUE_RAW_STRIDES, strides.array(),
             strides.size());
+
+#ifndef USE_HAL_3_3
+    Vector<int32_t> opaque_size;
+    for (size_t j = 0; j < scalar_formats_count; j++) {
+        if (scalar_formats[j] == ANDROID_SCALER_AVAILABLE_FORMATS_RAW_OPAQUE) {
+            for (size_t i = 0; i < MIN(MAX_SIZES_CNT,
+                    gCamCapability[cameraId]->supported_raw_dim_cnt); i++) {
+                cam_stream_buf_plane_info_t buf_planes;
+
+                rc = mm_stream_calc_offset_raw(fmt, &gCamCapability[cameraId]->raw_dim[i],
+                         &gCamCapability[cameraId]->padding_info, &buf_planes);
+
+                if (rc == 0) {
+                    opaque_size.add(gCamCapability[cameraId]->raw_dim[i].width);
+                    opaque_size.add(gCamCapability[cameraId]->raw_dim[i].height);
+                    opaque_size.add(buf_planes.plane_info.frame_len);
+                }else {
+                    LOGE("raw frame calculation failed!");
+                }
+            }
+        }
+    }
+
+    if ((opaque_size.size() > 0) &&
+            (opaque_size.size() % PER_CONFIGURATION_SIZE_3 == 0))
+        staticInfo.update(ANDROID_SENSOR_OPAQUE_RAW_SIZE, opaque_size.array(), opaque_size.size());
+    else
+        LOGW("Warning: ANDROID_SENSOR_OPAQUE_RAW_SIZE is using rough estimation(2 bytes/pixel)");
+#endif
 
     gStaticMetadata[cameraId] = staticInfo.release();
     return rc;
@@ -7780,7 +7888,11 @@ int QCamera3HardwareInterface::getCamInfo(uint32_t cameraId,
 
 
     info->orientation = (int)gCamCapability[cameraId]->sensor_mount_angle;
+#ifndef USE_HAL_3_3
+    info->device_version = CAMERA_DEVICE_API_VERSION_3_4;
+#else
     info->device_version = CAMERA_DEVICE_API_VERSION_3_3;
+#endif
     info->static_camera_characteristics = gStaticMetadata[cameraId];
 
     //For now assume both cameras can operate independently.
@@ -8044,6 +8156,11 @@ camera_metadata_t* QCamera3HardwareInterface::translateCapabilityToMetadata(int 
     /* sensitivity */
     static const int32_t default_sensitivity = 100;
     settings.update(ANDROID_SENSOR_SENSITIVITY, &default_sensitivity, 1);
+#ifndef USE_HAL_3_3
+    static const int32_t default_isp_sensitivity =
+            gCamCapability[mCameraId]->isp_sensitivity_range.min_sensitivity;
+    settings.update(ANDROID_CONTROL_POST_RAW_SENSITIVITY_BOOST, &default_isp_sensitivity, 1);
+#endif
 
     /*edge mode*/
     settings.update(ANDROID_EDGE_MODE, &edge_mode, 1);
@@ -9097,6 +9214,29 @@ int QCamera3HardwareInterface::translateToHalMetadata
             rc = BAD_VALUE;
         }
     }
+
+#ifndef USE_HAL_3_3
+    if (frame_settings.exists(ANDROID_CONTROL_POST_RAW_SENSITIVITY_BOOST)) {
+        int32_t ispSensitivity =
+            frame_settings.find(ANDROID_CONTROL_POST_RAW_SENSITIVITY_BOOST).data.i32[0];
+        if (ispSensitivity <
+            gCamCapability[mCameraId]->isp_sensitivity_range.min_sensitivity) {
+                ispSensitivity =
+                    gCamCapability[mCameraId]->isp_sensitivity_range.min_sensitivity;
+                LOGD("clamp ispSensitivity to %d", ispSensitivity);
+        }
+        if (ispSensitivity >
+            gCamCapability[mCameraId]->isp_sensitivity_range.max_sensitivity) {
+                ispSensitivity =
+                    gCamCapability[mCameraId]->isp_sensitivity_range.max_sensitivity;
+                LOGD("clamp ispSensitivity to %d", ispSensitivity);
+        }
+        if (ADD_SET_PARAM_ENTRY_TO_BATCH(hal_metadata, CAM_INTF_META_ISP_SENSITIVITY,
+                ispSensitivity)) {
+            rc = BAD_VALUE;
+        }
+    }
+#endif
 
     if (frame_settings.exists(ANDROID_SHADING_MODE)) {
         uint8_t shadingMode = frame_settings.find(ANDROID_SHADING_MODE).data.u8[0];
