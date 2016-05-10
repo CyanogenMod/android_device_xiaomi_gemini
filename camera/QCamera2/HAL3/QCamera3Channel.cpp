@@ -3130,7 +3130,7 @@ QCamera3PicChannel::QCamera3PicChannel(uint32_t cam_handle,
                     void *userData,
                     camera3_stream_t *stream,
                     cam_feature_mask_t postprocess_mask,
-                    bool is4KVideo,
+                    __unused bool is4KVideo,
                     bool isInputStreamConfigured,
                     QCamera3Channel *metadataChannel,
                     uint32_t numBuffers) :
@@ -3149,9 +3149,7 @@ QCamera3PicChannel::QCamera3PicChannel(uint32_t cam_handle,
     mYuvHeight = stream->height;
     mStreamType = CAM_STREAM_TYPE_SNAPSHOT;
     // Use same pixelformat for 4K video case
-    mStreamFormat = is4KVideo ?
-            getStreamDefaultFormat(CAM_STREAM_TYPE_VIDEO)
-            :getStreamDefaultFormat(CAM_STREAM_TYPE_SNAPSHOT);
+    mStreamFormat = getStreamDefaultFormat(CAM_STREAM_TYPE_SNAPSHOT);
     int32_t rc = m_postprocessor.initJpeg(jpegEvtHandle, &m_max_pic_dim, this);
     if (rc != 0) {
         LOGE("Init Postprocessor failed");
