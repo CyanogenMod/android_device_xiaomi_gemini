@@ -771,9 +771,8 @@ void QCamera2HardwareInterface::release_recording_frame(
     LOGD("E camera id %d", hw->getCameraId());
 
     //Close and delete duplicated native handle and FD's.
-    if (hw->mVideoMem != NULL) {
-        ret = hw->mVideoMem->closeNativeHandle(opaque,
-                hw->mStoreMetaDataInFrame > 0);
+    if ((hw->mVideoMem != NULL) && (hw->mStoreMetaDataInFrame)) {
+         ret = hw->mVideoMem->closeNativeHandle(opaque, TRUE);
         if (ret != NO_ERROR) {
             LOGE("Invalid video metadata");
             return;
@@ -2861,7 +2860,10 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(
             }
             videoMemory->setVideoInfo(usage, fmt);
             mem = videoMemory;
-            mVideoMem = videoMemory;
+            if (!mParameters.getBufBatchCount()) {
+                //For batch mode this will be part of user buffer.
+                mVideoMem = videoMemory;
+            }
         }
         break;
     case CAM_STREAM_TYPE_CALLBACK:
