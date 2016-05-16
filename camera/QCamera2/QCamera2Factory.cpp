@@ -110,6 +110,10 @@ QCamera2Factory::QCamera2Factory()
                     mHalDescriptors[i].device_version =
                             CAMERA_DEVICE_API_VERSION_1_0;
                 }
+                //Query camera at this point in order
+                //to avoid any delays during subsequent
+                //calls to 'getCameraInfo()'
+                getCameraInfo(i, &info);
             }
         } else {
             LOGE("Not enough resources to allocate HAL descriptor table!");

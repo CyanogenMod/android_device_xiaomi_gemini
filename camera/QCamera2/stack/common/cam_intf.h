@@ -94,8 +94,6 @@ typedef struct {
 }cam_sync_related_sensors_event_info_t;
 
 /* Related camera sensor specific calibration data */
-// Align bytes according to API document.
-#pragma pack(2)
 typedef struct {
     /* Focal length in pixels @ calibration resolution.*/
     float       normalized_focal_length;
@@ -110,15 +108,12 @@ typedef struct {
     /* Focal length ratio @ Calibration */
     float       focal_length_ratio;
 }cam_related_sensor_calibration_data_t;
-#pragma pack()
 
 /* Related Camera System Calibration data
    Calibration data for the entire related cam sub-system is
    in a shared EEPROM. We have 2 fields which are specific to
    each sensor followed by a set of common calibration of the
    entire related cam system*/
-// Align bytes according to API document.
-#pragma pack(2)
 typedef struct {
     /* Version information */
     uint32_t    calibration_format_version;
@@ -165,7 +160,6 @@ typedef struct {
     /* Reserved for future use */
     float      reserved[RELCAM_CALIB_RESERVED_MAX];
 } cam_related_system_calibration_data_t;
-#pragma pack()
 
 typedef struct {
   uint32_t default_sensor_flip;

@@ -7457,15 +7457,6 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
     staticInfo.update(QCAMERA3_OPAQUE_RAW_STRIDES, strides.array(),
             strides.size());
 
-    staticInfo.update(QCAMERA3_DUALCAM_CALIB_META_DATA_BLOB,
-            (const uint8_t*)&gCamCapability[cameraId]->related_cam_calibration,
-            sizeof(gCamCapability[cameraId]->related_cam_calibration));
-
-    uint8_t isMonoOnly =
-            (gCamCapability[cameraId]->color_arrangement == CAM_FILTER_ARRANGEMENT_Y);
-    staticInfo.update(QCAMERA3_SENSOR_IS_MONO_ONLY,
-            &isMonoOnly, 1);
-
     gStaticMetadata[cameraId] = staticInfo.release();
     return rc;
 }
