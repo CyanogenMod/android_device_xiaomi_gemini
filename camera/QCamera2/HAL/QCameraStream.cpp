@@ -1179,13 +1179,27 @@ int32_t QCameraStream::bufDone(const void *opaque, bool isMetaData)
 {
     int32_t rc = NO_ERROR;
     int index = -1;
+    QCameraVideoMemory *mVideoMem = NULL;
 
     if ((mStreamInfo != NULL)
             && (mStreamInfo->streaming_mode == CAM_STREAMING_MODE_BATCH)
             && (mStreamBatchBufs != NULL)) {
         index = mStreamBatchBufs->getMatchBufIndex(opaque, isMetaData);
+        mVideoMem = (QCameraVideoMemory *)mStreamBatchBufs;
     } else if (mStreamBufs != NULL){
         index = mStreamBufs->getMatchBufIndex(opaque, isMetaData);
+        mVideoMem = (QCameraVideoMemory *)mStreamBufs;
+    }
+
+    //Close and delete duplicated native handle and FD's.
+    if (mVideoMem != NULL) {
+        rc = mVideoMem->closeNativeHandle(opaque, isMetaData);
+        if (rc != NO_ERROR) {
+            LOGE("Invalid video metadata");
+            return rc;
+        }
+    } else {
+        LOGE("Possible FD leak. Release recording called after stop");
     }
 
     if (index == -1 || index >= mNumBufs || mBufDefs == NULL) {

@@ -51,6 +51,8 @@ class QCameraMemoryPool;
 
 //OFFSET, SIZE, USAGE, TIMESTAMP, FORMAT
 #define VIDEO_METADATA_NUM_INTS          5
+//Buffer identity
+#define VIDEO_METADATA_NUM_COMMON_INTS   1
 
 enum QCameraMemType {
     QCAMERA_MEM_TYPE_DEFAULT      = 0,
@@ -231,8 +233,8 @@ public:
     int getUsage(){return mUsage;};
     int getFormat(){return mFormat;};
     int convCamtoOMXFormat(cam_format_t format);
-    native_handle_t *updateNativeHandle(uint32_t index, bool metadata = true);
     int closeNativeHandle(const void *data, bool metadata = true);
+    native_handle_t *getNativeHandle(uint32_t index, bool metadata = true);
 private:
     camera_memory_t *mMetadata[MM_CAMERA_MAX_NUM_FRAMES];
     uint8_t mMetaBufCount;
