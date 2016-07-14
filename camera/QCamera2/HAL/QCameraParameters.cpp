@@ -12930,7 +12930,7 @@ bool QCameraParameters::setStreamConfigure(bool isCapture,
                         stream_config_info.format[stream_config_info.num_streams]);
                 stream_config_info.is_type[stream_config_info.num_streams] = IS_TYPE_NONE;
                 stream_config_info.num_streams++;
-            } else {
+            } else if(!getQuadraCfa()) {
                 stream_config_info.type[stream_config_info.num_streams] =
                         CAM_STREAM_TYPE_POSTVIEW;
                 getStreamDimension(CAM_STREAM_TYPE_POSTVIEW,
