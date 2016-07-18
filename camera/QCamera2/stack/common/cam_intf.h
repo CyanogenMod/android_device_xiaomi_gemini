@@ -927,7 +927,7 @@ typedef struct {
     INCLUDE(CAM_INTF_PARM_LONGSHOT_ENABLE,              int8_t,                      1);
     INCLUDE(CAM_INTF_PARM_TONE_MAP_MODE,                uint32_t,                    1);
     INCLUDE(CAM_INTF_META_TOUCH_AE_RESULT,              int32_t,                     1);
-    INCLUDE(CAM_INTF_PARM_DUAL_LED_CALIBRATION,         int32_t,                     1);
+    INCLUDE(CAM_INTF_PARM_LED_CALIBRATION,              cam_led_calibration_mode_t,  1);
     INCLUDE(CAM_INTF_PARM_ADV_CAPTURE_MODE,             uint8_t,                     1);
     INCLUDE(CAM_INTF_PARM_QUADRA_CFA,                   int32_t,                     1);
 

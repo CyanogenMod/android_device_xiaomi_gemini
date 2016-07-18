@@ -211,6 +211,7 @@ const char QCameraParameters::KEY_QC_INSTANT_AEC[] = "instant-aec";
 const char QCameraParameters::KEY_QC_INSTANT_CAPTURE[] = "instant-capture";
 const char QCameraParameters::KEY_QC_INSTANT_AEC_SUPPORTED_MODES[] = "instant-aec-values";
 const char QCameraParameters::KEY_QC_INSTANT_CAPTURE_SUPPORTED_MODES[] = "instant-capture-values";
+const char QCameraParameters::KEY_QC_LED_CALIBRATION_MODES[] = "led-calibration-mode";
 
 // Values for effect settings.
 const char QCameraParameters::EFFECT_EMBOSS[] = "emboss";
@@ -355,6 +356,11 @@ const char QCameraParameters::KEY_QC_INSTANT_AEC_FAST_AEC[] = "2";
 const char QCameraParameters::KEY_QC_INSTANT_CAPTURE_DISABLE[] = "0";
 const char QCameraParameters::KEY_QC_INSTANT_CAPTURE_AGGRESSIVE_AEC[] = "1";
 const char QCameraParameters::KEY_QC_INSTANT_CAPTURE_FAST_AEC[] = "2";
+
+//Values for led calibration mode
+const char QCameraParameters::KEY_QC_LED_CALIBRATION_OFF[] = "0";
+const char QCameraParameters::KEY_QC_LED_CALIBRATION_DUAL[] = "1";
+const char QCameraParameters::KEY_QC_LED_CALIBRATION_SINGLE[] = "2";
 
 const char QCameraParameters::KEY_QC_GPS_LATITUDE_REF[] = "gps-latitude-ref";
 const char QCameraParameters::KEY_QC_GPS_LONGITUDE_REF[] = "gps-longitude-ref";
@@ -528,6 +534,13 @@ const QCameraParameters::QCameraMap<cam_aec_convergence_type>
     { KEY_QC_INSTANT_CAPTURE_DISABLE,        CAM_AEC_NORMAL_CONVERGENCE },
     { KEY_QC_INSTANT_CAPTURE_AGGRESSIVE_AEC, CAM_AEC_AGGRESSIVE_CONVERGENCE },
     { KEY_QC_INSTANT_CAPTURE_FAST_AEC,       CAM_AEC_FAST_CONVERGENCE },
+};
+
+const QCameraParameters::QCameraMap<cam_led_calibration_mode_t>
+        QCameraParameters::LED_CALIBRATION_MODE_MAP[] = {
+    {KEY_QC_LED_CALIBRATION_OFF,        CAM_LED_CALIBRATION_MODE_OFF},
+    {KEY_QC_LED_CALIBRATION_DUAL,       CAM_LED_CALIBRATION_MODE_DUAL},
+    {KEY_QC_LED_CALIBRATION_SINGLE,     CAM_LED_CALIBRATION_MODE_SINGLE},
 };
 
 const QCameraParameters::QCameraMap<cam_format_t>
@@ -971,7 +984,7 @@ QCameraParameters::QCameraParameters()
       m_expTime(0),
       m_isoValue(0),
       m_ManualCaptureMode(CAM_MANUAL_CAPTURE_TYPE_OFF),
-      m_dualLedCalibration(0),
+      m_ledCalibrationMode(CAM_LED_CALIBRATION_MODE_OFF),
       m_bInstantAEC(false),
       m_bInstantCapture(false),
       mAecFrameBound(0),
@@ -1102,7 +1115,7 @@ QCameraParameters::QCameraParameters(const String8 &params)
     m_expTime(0),
     m_isoValue(0),
     m_ManualCaptureMode(CAM_MANUAL_CAPTURE_TYPE_OFF),
-    m_dualLedCalibration(0),
+    m_ledCalibrationMode(CAM_LED_CALIBRATION_MODE_OFF),
     m_bInstantAEC(false),
     m_bInstantCapture(false),
     mAecFrameBound(0),
@@ -5112,7 +5125,7 @@ int32_t QCameraParameters::updateParameters(const String8& p,
     if ((rc = setNoiseReductionMode(params)))           final_rc = rc;
 
     if ((rc = setLongshotParam(params)))                final_rc = rc;
-    if ((rc = setDualLedCalibration(params)))           final_rc = rc;
+    if ((rc = setLedCalibration(params)))               final_rc = rc;
 
     setVideoBatchSize();
     setLowLightCapture();
@@ -14276,29 +14289,67 @@ int32_t QCameraParameters::getPicSizeFromAPK(int &width, int &height)
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int32_t QCameraParameters::setDualLedCalibration(
+int32_t QCameraParameters::setLedCalibration(
         __unused const QCameraParameters& params)
 {
-    char value[PROPERTY_VALUE_MAX];
-    int32_t calibration = 0;
+    const char *str = params.get(KEY_QC_LED_CALIBRATION_MODES);
+    const char *prev_str = get(KEY_QC_LED_CALIBRATION_MODES);
 
-    memset(value, 0, sizeof(value));
-    property_get("persist.camera.dual_led_calib", value, "0");
-    calibration = atoi(value);
-    if (calibration != m_dualLedCalibration) {
-      m_dualLedCalibration = calibration;
-      LOGD("%s:updating calibration=%d m_dualLedCalibration=%d",
-        __func__, calibration, m_dualLedCalibration);
+    if (str != NULL) {
+        if (prev_str == NULL || strcmp(str, prev_str) != 0) {
+            return setLedCalibration(str);
+        }
+    } else {
+        char value[PROPERTY_VALUE_MAX];
 
-      if (ADD_SET_PARAM_ENTRY_TO_BATCH(m_pParamBuf,
-               CAM_INTF_PARM_DUAL_LED_CALIBRATION,
-               m_dualLedCalibration)) {
-          LOGE("%s:Failed to update dual led calibration param", __func__);
-          return BAD_VALUE;
-      }
+        memset(value, 0, sizeof(value));
+        property_get("persist.camera.led_calib_mode", value, "0");
+        if (strlen(value) > 0) {
+            if (prev_str == NULL || strcmp(value, prev_str) != 0) {
+                return setLedCalibration(value);
+            }
+        }
     }
     return NO_ERROR;
 }
+
+
+/*===========================================================================
+ * FUNCTION   : setLedCalibration
+ *
+ * DESCRIPTION: set Led Calibration Mode
+ *
+ * PARAMETERS :
+ *   @calibration_mode : calibration mode string
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+ int32_t QCameraParameters::setLedCalibration(const char *calibModeStr)
+{
+
+    if (calibModeStr != NULL) {
+        int32_t value = lookupAttr(LED_CALIBRATION_MODE_MAP,
+                PARAM_MAP_SIZE(LED_CALIBRATION_MODE_MAP), calibModeStr);
+        if (value != NAME_NOT_FOUND) {
+            m_ledCalibrationMode = static_cast<cam_led_calibration_mode_t>(value);
+            LOGD("Setting led calibration mode %d", m_ledCalibrationMode);
+            updateParamEntry(KEY_QC_LED_CALIBRATION_MODES, calibModeStr);
+
+            if (ADD_SET_PARAM_ENTRY_TO_BATCH(m_pParamBuf,
+                    CAM_INTF_PARM_LED_CALIBRATION, m_ledCalibrationMode)) {
+                LOGE("Failed to update led calibration param");
+                return BAD_VALUE;
+            }
+            return NO_ERROR;
+        }
+    }
+    LOGE("Invalid Calibraon Mode value: %s",
+            (calibModeStr == NULL) ? "NULL" : calibModeStr);
+    return BAD_VALUE;
+}
+
 
 /*===========================================================================
  * FUNCTION   : setinstantAEC

@@ -863,6 +863,13 @@ typedef enum {
     CAM_SENSOR_HDR_MAX,
 } cam_sensor_hdr_type_t;
 
+typedef enum {
+    CAM_LED_CALIBRATION_MODE_OFF,
+    CAM_LED_CALIBRATION_MODE_DUAL,
+    CAM_LED_CALIBRATION_MODE_SINGLE,
+    CAM_LED_CALIBRATION_MODE_MAX
+} cam_led_calibration_mode_t;
+
 typedef struct  {
     int32_t left;
     int32_t top;
@@ -1896,7 +1903,7 @@ typedef enum {
     CAM_INTF_PARM_CDS_MODE,
     CAM_INTF_PARM_TONE_MAP_MODE,
     CAM_INTF_PARM_CAPTURE_FRAME_CONFIG, /* 90 */
-    CAM_INTF_PARM_DUAL_LED_CALIBRATION,
+    CAM_INTF_PARM_LED_CALIBRATION,
     CAM_INTF_PARM_ADV_CAPTURE_MODE,
 
     /* stream based parameters */
