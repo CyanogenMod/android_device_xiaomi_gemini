@@ -5318,6 +5318,9 @@ int QCamera2HardwareInterface::takeLiveSnapshot_internal()
     int rc = NO_ERROR;
 
     QCameraChannel *pChannel = NULL;
+    QCameraChannel *pPreviewChannel = NULL;
+    QCameraStream  *pPreviewStream = NULL;
+    QCameraStream  *pStream = NULL;
 
     //Set rotation value from user settings as Jpeg rotation
     //to configure back-end modules.
@@ -5340,6 +5343,45 @@ int QCamera2HardwareInterface::takeLiveSnapshot_internal()
         LOGE("Snapshot/Video channel not initialized");
         rc = NO_INIT;
         goto end;
+    }
+
+    // Check if all preview buffers are mapped before creating
+    // a jpeg session as preview stream buffers are queried during the same
+    pPreviewChannel = m_channels[QCAMERA_CH_TYPE_PREVIEW];
+    if (pPreviewChannel != NULL) {
+        uint32_t numStreams = pPreviewChannel->getNumOfStreams();
+
+        for (uint8_t i = 0 ; i < numStreams ; i++ ) {
+            pStream = pPreviewChannel->getStreamByIndex(i);
+            if (!pStream)
+                continue;
+            if (CAM_STREAM_TYPE_PREVIEW == pStream->getMyType()) {
+                pPreviewStream = pStream;
+                break;
+            }
+        }
+
+        if (pPreviewStream != NULL) {
+            Mutex::Autolock l(mMapLock);
+            QCameraMemory *pMemory = pStream->getStreamBufs();
+            if (!pMemory) {
+                LOGE("Error!! pMemory is NULL");
+                return -ENOMEM;
+            }
+
+            uint8_t waitCnt = 2;
+            while (!pMemory->checkIfAllBuffersMapped() && (waitCnt > 0)) {
+                LOGL(" Waiting for preview buffers to be mapped");
+                mMapCond.waitRelative(
+                        mMapLock, CAMERA_DEFERRED_MAP_BUF_TIMEOUT);
+                LOGL("Wait completed!!");
+                waitCnt--;
+            }
+            // If all buffers are not mapped after retries, assert
+            assert(pMemory->checkIfAllBuffersMapped());
+        } else {
+            assert(pPreviewStream);
+        }
     }
 
     DeferWorkArgs args;
