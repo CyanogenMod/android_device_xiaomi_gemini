@@ -3320,39 +3320,19 @@ void QCamera3HardwareInterface::handleBufferWithLock(
             }
             mPendingBuffersMap.removeBuf(buffer->buffer);
 
-            bool notifyNow = true;
-            for (pendingRequestIterator j = mPendingRequestsList.begin();
-                    j != mPendingRequestsList.end(); j++) {
-                if (j->frame_number < frame_number) {
-                    notifyNow = false;
-                    break;
-                }
-            }
+            camera3_capture_result result;
+            memset(&result, 0, sizeof(camera3_capture_result));
+            result.frame_number = frame_number;
+            result.result = i->settings;
+            result.input_buffer = i->input_buffer;
+            result.num_output_buffers = 1;
+            result.output_buffers = buffer;
+            result.partial_result = PARTIAL_RESULT_COUNT;
 
-            if (notifyNow) {
-                camera3_capture_result result;
-                memset(&result, 0, sizeof(camera3_capture_result));
-                result.frame_number = frame_number;
-                result.result = i->settings;
-                result.input_buffer = i->input_buffer;
-                result.num_output_buffers = 1;
-                result.output_buffers = buffer;
-                result.partial_result = PARTIAL_RESULT_COUNT;
-
-                mCallbackOps->notify(mCallbackOps, &notify_msg);
-                mCallbackOps->process_capture_result(mCallbackOps, &result);
-                LOGD("Notify reprocess now %d!", frame_number);
-                i = erasePendingRequest(i);
-            } else {
-                // Cache reprocess result for later
-                PendingReprocessResult pendingResult;
-                memset(&pendingResult, 0, sizeof(PendingReprocessResult));
-                pendingResult.notify_msg = notify_msg;
-                pendingResult.buffer = *buffer;
-                pendingResult.frame_number = frame_number;
-                mPendingReprocessResultList.push_back(pendingResult);
-                LOGD("Cache reprocess result %d!", frame_number);
-            }
+            mCallbackOps->notify(mCallbackOps, &notify_msg);
+            mCallbackOps->process_capture_result(mCallbackOps, &result);
+            LOGD("Notify reprocess now %d!", frame_number);
+            i = erasePendingRequest(i);
         } else {
             for (List<RequestedBufferInfo>::iterator j = i->buffers.begin();
                 j != i->buffers.end(); j++) {
