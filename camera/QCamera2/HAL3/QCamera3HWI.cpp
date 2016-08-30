@@ -8032,6 +8032,10 @@ camera_metadata_t* QCamera3HardwareInterface::translateCapabilityToMetadata(int 
         optStabMode = ANDROID_LENS_OPTICAL_STABILIZATION_MODE_OFF;
         break;
     }
+    // Set CAC to OFF if underlying device doesn't support
+    if (gCamCapability[mCameraId]->aberration_modes_count == 0) {
+        cacMode = ANDROID_COLOR_CORRECTION_ABERRATION_MODE_OFF;
+    }
     settings.update(ANDROID_COLOR_CORRECTION_ABERRATION_MODE, &cacMode, 1);
     settings.update(ANDROID_CONTROL_CAPTURE_INTENT, &controlIntent, 1);
     settings.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vsMode, 1);
