@@ -13613,7 +13613,7 @@ void QCameraParameters::setReprocCount()
         return;
     }
 
-    if ((getZoomLevel() != 0)
+    if ((getZoomLevel() != 0 && !getQuadraCfa())
             && (getBurstCountForAdvancedCapture()
             == getNumOfSnapshots())) {
         LOGD("2 Pass postprocessing enabled");
