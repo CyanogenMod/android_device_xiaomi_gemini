@@ -866,9 +866,11 @@ void QCamera2HardwareInterface::preview_stream_cb_routine(mm_camera_super_buf_t 
     // Display the buffer.
     LOGD("%p displayBuffer %d E", pme, idx);
     uint8_t numMapped = memory->getMappable();
+    LOGD("EnqueuedCnt %d numMapped %d", dequeueCnt, numMapped);
 
     for (uint8_t i = 0; i < dequeueCnt; i++) {
         int dequeuedIdx = memory->dequeueBuffer();
+        LOGD("dequeuedIdx %d numMapped %d Loop running for %d", dequeuedIdx, numMapped, i);
         if (dequeuedIdx < 0 || dequeuedIdx >= memory->getCnt()) {
             LOGE("Invalid dequeued buffer index %d from display",
                    dequeuedIdx);
@@ -891,7 +893,8 @@ void QCamera2HardwareInterface::preview_stream_cb_routine(mm_camera_super_buf_t 
                 }
             }
         }
-
+        // Get the updated mappable buffer count since it's modified in dequeueBuffer()
+        numMapped = memory->getMappable();
         if (err < 0) {
             LOGE("buffer mapping failed %d", err);
         } else {

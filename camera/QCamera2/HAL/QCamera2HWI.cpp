@@ -2880,8 +2880,8 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(
         }
         bufferCnt = mem->getCnt();
     }
-    LOGH("rc = %d type = %d count = %d size = %d cache = %d, pool = %d",
-            rc, stream_type, bufferCnt, size, bCachedMem, bPoolMem);
+    LOGH("rc = %d type = %d count = %d size = %d cache = %d, pool = %d mEnqueuedBuffers = %d",
+            rc, stream_type, bufferCnt, size, bCachedMem, bPoolMem, mEnqueuedBuffers);
     return mem;
 }
 
