@@ -1,3 +1,10 @@
+# Enable SDLLVM compiler option for build flavour >= N flavour
+PLATFORM_SDK_NPDK = 24
+ENABLE_CAM_SDLLVM  := $(shell if [ $(PLATFORM_SDK_VERSION) -ge $(PLATFORM_SDK_NPDK) ] ; then echo true ; else echo false ; fi)
+ifeq ($(ENABLE_CAM_SDLLVM),true)
+SDCLANG := true
+endif
+
 ifneq (,$(filter $(TARGET_ARCH), arm arm64))
 
 LOCAL_PATH:= $(call my-dir)
@@ -120,3 +127,7 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(call first-makefiles-under,$(LOCAL_PATH))
 endif
+ifeq ($(ENABLE_CAM_SDLLVM),true)
+SDCLANG := false
+endif
+
