@@ -86,14 +86,8 @@ etc/firmware/rampatch_tlv_3.2.tlv
 
 # Camera
 bin/mm-qcamera-daemon|af1e28661a5c2406355db6733b74f53fe2dd9fa1
-lib/hw/camera.msm8996.so|3707225bfc25443c6b59576cd34011ca82a405f1
-lib/libmmcamera_interface.so|67eddd485e6d71cdd0b8174961e340aa0d30db68
-lib/libmmjpeg_interface.so|e154bde0738a4ad0019b38b67a0dc1a81ac4e31b
-lib/libmm-qcamera.so|6dba036c0942cbb3ddd8175a69142655291d9d56
 lib/libmorpho_memory_allocator.so|414693a59e9f59da5513d2edd7a69b05be3f38dc
 lib/libmorpho_panorama.so|0bdbf9701d3c5dfffdf1e283cb8547967dcb92f0
-lib/libqomx_core.so|016b0b2a8542b0cbf92a0b2231d5bee11db00d14
-lib/libRecoFace.so|a385fb77c5d96c69eef7e35f494db504e69edd95
 vendor/lib/libarcsoft_beauty_shot.so|f8f304329954a5e1499650f7e07147a7d927dc79
 vendor/lib/libchromaflash.so|8fe5d31f6d1e304b6b6ffe4ca2576abbcb2cc88d
 vendor/lib/libFaceGrade.so|2207600b2992f030847a815536b0267e72188098

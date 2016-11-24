@@ -114,6 +114,9 @@ PRODUCT_PACKAGES += \
 
 # Camera
 PRODUCT_PACKAGES += \
+    camera.msm8996 \
+    libqomx_core \
+    libmm-qcamera \
     Snap
 
 # Device config scripts
